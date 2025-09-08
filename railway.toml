@@ -1,0 +1,2 @@
+[build]
+ignoreEnv = ["TOKEN", "GUILD_ID"]

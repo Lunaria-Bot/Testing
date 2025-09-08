@@ -20,7 +20,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 STORAGE_FILE = "storage.json"
 
-# ---- Helpers ----
 def load_storage():
     if not os.path.exists(STORAGE_FILE):
         return {"autoroles": {}, "setups": {}}
@@ -33,8 +32,6 @@ def save_storage(data):
 
 storage = load_storage()
 
-
-# ---- Persistent Autorole Button ----
 class AutoroleButton(discord.ui.Button):
     def __init__(self, role_id: int):
         super().__init__(style=discord.ButtonStyle.primary, label=f"Get Role {role_id}", custom_id=f"autorole-{role_id}")
@@ -54,8 +51,6 @@ class AutoroleButton(discord.ui.Button):
             await member.add_roles(role)
             await interaction.response.send_message(f"✅ You got {role.name}!", ephemeral=True)
 
-
-# ---- Persistent Multi-role Dropdown ----
 class RoleSelect(discord.ui.Select):
     def __init__(self, roles):
         options = [discord.SelectOption(label=role.name, value=str(role.id)) for role in roles]
@@ -93,19 +88,14 @@ class RoleSelect(discord.ui.Select):
 
         await interaction.response.send_message(msg, ephemeral=True)
 
-
 class RoleView(discord.ui.View):
     def __init__(self, roles):
         super().__init__(timeout=None)
         self.add_item(RoleSelect(roles))
 
-
-# ---- Bot Ready ----
 @bot.event
 async def on_ready():
     await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
-
-    # Re-attach persistent views
     for msg_id, data in storage["autoroles"].items():
         channel = bot.get_channel(data["channel_id"])
         if channel:
@@ -122,16 +112,12 @@ async def on_ready():
 
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
 
-
-# ---- Embed Command ----
 @bot.tree.command(name="embed", description="Create a custom embed", guild=discord.Object(id=GUILD_ID))
 @app_commands.checks.has_permissions(administrator=True)
 async def embed(interaction: discord.Interaction, title: str, description: str):
     embed = discord.Embed(title=title, description=description, color=discord.Color.random())
     await interaction.response.send_message(embed=embed)
 
-
-# ---- Autorole Command ----
 @bot.tree.command(name="autorole", description="Send an auto role message", guild=discord.Object(id=GUILD_ID))
 @app_commands.checks.has_permissions(administrator=True)
 async def autorole(interaction: discord.Interaction, role: discord.Role):
@@ -143,12 +129,9 @@ async def autorole(interaction: discord.Interaction, role: discord.Role):
         view=view
     )
     await interaction.response.send_message("✅ Autorole message created.", ephemeral=True)
-
     storage["autoroles"][str(msg.id)] = {"channel_id": interaction.channel.id, "role_id": role.id}
     save_storage(storage)
 
-
-# ---- Setup Command ----
 @bot.tree.command(name="setup", description="Create a multi-role selector", guild=discord.Object(id=GUILD_ID))
 @app_commands.checks.has_permissions(administrator=True)
 async def setup(interaction: discord.Interaction, roles: str):
@@ -160,26 +143,20 @@ async def setup(interaction: discord.Interaction, roles: str):
             role = interaction.guild.get_role(role_id)
             if role:
                 role_objects.append(role)
-
     if not role_objects:
         await interaction.response.send_message("❌ No valid roles found.", ephemeral=True)
         return
-
     view = RoleView(role_objects)
     msg = await interaction.channel.send("📌 Select your roles below:", view=view)
     await interaction.response.send_message("✅ Setup message created.", ephemeral=True)
-
     storage["setups"][str(msg.id)] = {"channel_id": interaction.channel.id, "role_ids": [r.id for r in role_objects]}
     save_storage(storage)
 
-
-# ---- Error Handling ----
 @embed.error
 @autorole.error
 @setup.error
 async def permissions_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message("❌ You must be an **Administrator** to use this command.", ephemeral=True)
-
 
 bot.run(TOKEN)
